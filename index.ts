@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -117,10 +118,35 @@ async function runAutomation() {
 
 // 3. Express API Endpoint
 app.post('/api/start-interview', async (req, res) => {
-  console.log("Received trigger from frontend button!");
-  // Respond immediately so the frontend fetch doesn't timeout waiting for Playwright
-  res.json({ message: "Automation triggered successfully" });
+  console.log("Received candidate form data from HTML website!");
+  
+  // Extract the data sent from the HTML form
+  const { firstName, lastName, emailId, jobTitle } = req.body;
 
+  try {
+    // 1. Save the new candidate to Supabase
+    const connectionString = process.env.DATABASE_URL!;
+    const client = postgres(connectionString);
+    const db = drizzle(client);
+
+    await db.insert(candidates).values({
+      id: crypto.randomUUID(),
+      firstName: firstName,
+      lastName: lastName,
+      emailId: emailId,
+      jobTitle: jobTitle
+    });
+    console.log(`Saved ${firstName} ${lastName} to Supabase successfully.`);
+
+    // 2. Tell the HTML website it was successful so the button resets
+    res.json({ message: "Candidate saved and automation triggered successfully" });
+
+  } catch (dbError) {
+    console.error("Failed to save to Supabase:", dbError);
+    return res.status(500).json({ error: "Database error" });
+  }
+
+  // 3. Start Playwright in the background (it will fetch the row we just inserted)
   try {
     await runAutomation();
   } catch (err) {
