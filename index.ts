@@ -48,7 +48,7 @@ async function runAutomation() {
     const fullName = `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim();
     console.log(`✅ [DATA FOUND]: ${fullName} | ${candidate.emailId}`);
 
-    checkpoint = "Launching Headless Browser (Cloud Run Active Mode)...";
+    checkpoint = "Launching Headless Browser (Fast Mode)...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     browser = await chromium.launch({ 
       headless: true, 
@@ -56,7 +56,8 @@ async function runAutomation() {
         '--no-sandbox', 
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-gpu'
+        '--disable-gpu',
+        '--no-zygote'
       ] 
     });
 
@@ -64,11 +65,11 @@ async function runAutomation() {
 
     checkpoint = "Navigating directly to Job URL...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    await page.goto(process.env.TARGET_SITE_URL!, { timeout: 60000 });
+    await page.goto(process.env.TARGET_SITE_URL!, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
     checkpoint = "Filling Login Credentials...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    await page.locator('input[type="email"]').waitFor({ state: 'visible', timeout: 30000 });
+    await page.locator('input[type="email"]').waitFor({ state: 'visible', timeout: 20000 });
     await page.locator('input[type="email"]').fill(process.env.TARGET_SITE_USER!);
     await page.locator('input[type="password"]').fill(process.env.TARGET_SITE_PASS!);
 
@@ -79,13 +80,13 @@ async function runAutomation() {
     checkpoint = "Waiting for Candidates Tab on Job Page...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     const candidatesTab = page.getByText(/Candidates/i).first();
-    await candidatesTab.waitFor({ state: 'visible', timeout: 40000 });
+    await candidatesTab.waitFor({ state: 'visible', timeout: 30000 });
     await candidatesTab.click();
 
     checkpoint = "Clicking 'Add person and invite'...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     const addBtn = page.getByRole('button', { name: /Add person and invite/i });
-    await addBtn.waitFor({ state: 'visible', timeout: 20000 });
+    await addBtn.waitFor({ state: 'visible', timeout: 15000 });
     await addBtn.click();
 
     checkpoint = "Switching to 'New person' tab...";
@@ -136,7 +137,7 @@ async function runAutomation() {
   }
 }
 
-// 3. Express API Endpoint (Awaits automation BEFORE returning HTTP response)
+// 3. Express API Endpoint
 app.post('/api/start-interview', async (req, res) => {
   console.log("\n🔔 [WEBHOOK RECEIVED]: Triggered from frontend!");
 
