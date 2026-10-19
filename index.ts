@@ -11,6 +11,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// 1. Supabase Database Schema
 const candidates = pgTable('candidates', {
   id: uuid('id').primaryKey(),
   firstName: text('first_name'),
@@ -20,15 +21,15 @@ const candidates = pgTable('candidates', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// 2. Playwright Automation Function
 async function runAutomation() {
-  // 1. Initialize our Checkpoint Tracker
   let checkpoint = "Initializing Database Connection...";
   let browser;
 
   try {
     console.log(`\n▶️ [CHECKPOINT]: ${checkpoint}`);
     const connectionString = process.env.DATABASE_URL!;
-    const client = postgres(connectionString, { prepare: false }); // prepare: false required for Supabase pooler
+    const client = postgres(connectionString, { prepare: false }); 
     const db = drizzle(client);
 
     checkpoint = "Fetching latest candidate from Supabase...";
@@ -45,8 +46,7 @@ async function runAutomation() {
 
     const candidate = latestCandidates[0];
     const fullName = `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim();
-    const targetJob = candidate.jobTitle || 'Servicetechniker';
-    console.log(`✅ [DATA FOUND]: ${fullName} | ${candidate.emailId} | ${targetJob}`);
+    console.log(`✅ [DATA FOUND]: ${fullName} | ${candidate.emailId}`);
 
     checkpoint = "Launching Headless Browser...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
@@ -56,8 +56,9 @@ async function runAutomation() {
     });
     const page = await browser.newPage();
 
-    checkpoint = "Navigating to Login Page...";
+    checkpoint = "Navigating directly to Job URL...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
+    // CRITICAL: process.env.TARGET_SITE_URL must be the specific job page link
     await page.goto(process.env.TARGET_SITE_URL!);
 
     checkpoint = "Filling Login Credentials...";
@@ -65,65 +66,61 @@ async function runAutomation() {
     await page.locator('input[type="email"]').fill(process.env.TARGET_SITE_USER!);
     await page.locator('input[type="password"]').fill(process.env.TARGET_SITE_PASS!);
 
-    checkpoint = "Submitting Login and Waiting for Redirect...";
+    checkpoint = "Submitting Login and waiting for Job Page...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     await Promise.all([
-      page.waitForURL(url => url.toString().includes('/admin'), { timeout: 15000 }),
+      page.waitForNavigation({ timeout: 15000 }),
       page.getByRole('button', { name: 'Login' }).click()
     ]);
 
-    checkpoint = "Verifying Candidates Page Location...";
+    checkpoint = "Clicking 'Candidates' Tab...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    if (!page.url().includes('/candidates')) {
-      await page.goto('https://dev.aimea.app/admin/candidates');
-      await page.waitForLoadState('networkidle');
-    }
+    const candidatesTab = page.getByText(/Candidates/i).first();
+    await candidatesTab.waitFor({ state: 'visible' });
+    await candidatesTab.click();
 
-    checkpoint = "Clicking '+ Add Candidate' Button...";
+    checkpoint = "Clicking 'Add person and invite'...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    const addBtn = page.getByRole('button', { name: /Add Candidate/i });
+    const addBtn = page.getByRole('button', { name: /Add person and invite/i });
     await addBtn.waitFor({ state: 'visible' });
     await addBtn.click();
 
-    checkpoint = "Filling New Candidate Form...";
+    checkpoint = "Switching to 'New person' tab...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    await page.getByPlaceholder('e.g., John Doe').fill(fullName);
-    await page.getByPlaceholder('e.g., john@example.com').fill(candidate.emailId!);
-    await page.getByRole('button', { name: 'Create Candidate' }).click();
+    await page.getByText('New person', { exact: true }).click();
 
-    checkpoint = "Opening Candidate Profile...";
+    checkpoint = "Filling Candidate Name and Email...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    await page.waitForTimeout(2000); // Wait for modal to close
-    await page.getByText(fullName, { exact: true }).first().click();
-    await page.getByRole('button', { name: 'Create Interview Link' }).click();
-
-    checkpoint = `Selecting Job Title: ${targetJob}...`;
-    console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
+    const dialog = page.getByRole('dialog');
+    
     try {
-      const jobDropdown = page.getByRole('combobox').first();
-      await jobDropdown.click();
-      await page.getByRole('option', { name: new RegExp(targetJob, 'i') }).click();
-    } catch (dropdownErr) {
-      console.log(`⚠️ [WARNING]: Dropdown option "${targetJob}" not found. Using default.`);
+        await dialog.getByLabel('Name').fill(fullName);
+        await dialog.getByLabel('Email').fill(candidate.emailId!);
+    } catch {
+        const textInputs = dialog.locator('input[type="text"]');
+        await textInputs.first().fill(fullName);
+        await dialog.locator('input[type="email"], input[name="email"]').first().fill(candidate.emailId!);
     }
 
     checkpoint = "Clicking 'Schedule Interview'...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    await page.getByRole('button', { name: 'Schedule Interview' }).click();
+    await dialog.getByRole('button', { name: 'Schedule Interview' }).click();
 
-    checkpoint = "Waiting 10 seconds for Aimea processing...";
+    checkpoint = "Waiting for Interview Generation...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    await page.waitForTimeout(10000);
+    await page.getByRole('heading', { name: 'Interview Scheduled!' }).waitFor({ state: 'visible', timeout: 15000 });
 
     checkpoint = "Clicking 'Send Invite'...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     await page.getByRole('button', { name: 'Send Invite' }).click();
-    await page.waitForTimeout(2000);
+
+    checkpoint = "Closing Modal...";
+    console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
+    await page.getByRole('button', { name: 'Close' }).click();
 
     console.log("🎉 [SUCCESS]: Automation completed perfectly!");
 
   } catch (error) {
-    // 2. The Checkpoint Crash Reporter
     console.error(`\n❌ [CRASH REPORT] AUTOMATION BROKE AT CHECKPOINT:`);
     console.error(`👉 ${checkpoint}`);
     console.error(`\n[ERROR DETAILS]:`, error);
@@ -135,6 +132,7 @@ async function runAutomation() {
   }
 }
 
+// 3. Express API Endpoint
 app.post('/api/start-interview', async (req, res) => {
   console.log("\n🔔 [WEBHOOK RECEIVED]: Triggered from frontend!");
   res.json({ message: "Automation triggered successfully" });
