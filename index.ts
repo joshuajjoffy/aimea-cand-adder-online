@@ -48,11 +48,19 @@ async function runAutomation() {
     const fullName = `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim();
     console.log(`✅ [DATA FOUND]: ${fullName} | ${candidate.emailId}`);
 
-    checkpoint = "Launching Headless Browser...";
+    checkpoint = "Launching Headless Browser (Low Memory Mode)...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     browser = await chromium.launch({ 
       headless: true, 
-      args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+      args: [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage', // CRITICAL: Fixes Docker memory crashes
+        '--disable-gpu',           // Disables graphics processing to save RAM
+        '--no-zygote',             // Disables unnecessary background processes
+        '--single-process',        // Forces everything into one memory thread
+        '--js-flags="--max-old-space-size=256"' // Restricts internal V8 engine memory
+      ] 
     });
     const page = await browser.newPage();
 
