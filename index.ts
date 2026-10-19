@@ -119,14 +119,15 @@ async function runAutomation() {
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     const sendBtn = page.getByRole('button', { name: /Send Invite/i }).first();
     await sendBtn.waitFor({ state: 'visible', timeout: 15000 });
-    await sendBtn.click();
+    await sendBtn.click({ force: true }); // Force click bypasses overlay pointer interception
 
     checkpoint = "Closing Modal...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     const closeBtn = page.getByRole('button', { name: /Close/i }).first();
     await closeBtn.waitFor({ state: 'visible', timeout: 15000 });
-    await closeBtn.click();
+    await closeBtn.click({ force: true });
 
+    console.log("🎉 [SUCCESS]: Automation completed perfectly!");
     console.log("🎉 [SUCCESS]: Automation completed perfectly!");
 
   } catch (error) {
