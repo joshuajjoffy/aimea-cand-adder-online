@@ -48,7 +48,7 @@ async function runAutomation() {
     const fullName = `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim();
     console.log(`✅ [DATA FOUND]: ${fullName} | ${candidate.emailId}`);
 
-    checkpoint = "Launching Headless Browser (Cloud Run 2GB Mode)...";
+    checkpoint = "Launching Headless Browser (Cloud Run Active Mode)...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     browser = await chromium.launch({ 
       headless: true, 
@@ -64,7 +64,6 @@ async function runAutomation() {
 
     checkpoint = "Navigating directly to Job URL...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    // Timeout extended to 60s for auth redirect & hydration
     await page.goto(process.env.TARGET_SITE_URL!, { timeout: 60000 });
 
     checkpoint = "Filling Login Credentials...";
@@ -128,6 +127,7 @@ async function runAutomation() {
     console.error(`\n❌ [CRASH REPORT] AUTOMATION BROKE AT CHECKPOINT:`);
     console.error(`👉 ${checkpoint}`);
     console.error(`\n[ERROR DETAILS]:`, error);
+    throw error;
   } finally {
     if (browser) {
       console.log("🧹 [CLEANUP]: Closing browser...");
@@ -136,19 +136,20 @@ async function runAutomation() {
   }
 }
 
-// 3. Express API Endpoint
+// 3. Express API Endpoint (Awaits automation BEFORE returning HTTP response)
 app.post('/api/start-interview', async (req, res) => {
   console.log("\n🔔 [WEBHOOK RECEIVED]: Triggered from frontend!");
-  res.json({ message: "Automation triggered successfully" });
 
   try {
     await runAutomation();
+    res.json({ message: "Automation completed successfully" });
   } catch (err) {
-    console.error("Critical server error:", err);
+    console.error("Critical server error during automation run:", err);
+    res.status(500).json({ error: "Automation process failed" });
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`🚀 [SERVER LIVE]: Listening on port ${PORT}`);
 });
