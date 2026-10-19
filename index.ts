@@ -48,49 +48,42 @@ async function runAutomation() {
     const fullName = `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim();
     console.log(`✅ [DATA FOUND]: ${fullName} | ${candidate.emailId}`);
 
-    checkpoint = "Launching Headless Browser (Low Memory Mode)...";
+    checkpoint = "Launching Headless Browser (Optimized)...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     browser = await chromium.launch({ 
       headless: true, 
       args: [
         '--no-sandbox', 
         '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage', // CRITICAL: Fixes Docker memory crashes
-        '--disable-gpu',           // Disables graphics processing to save RAM
-        '--no-zygote',             // Disables unnecessary background processes
-        '--single-process',        // Forces everything into one memory thread
-        '--js-flags="--max-old-space-size=256"' // Restricts internal V8 engine memory
+        '--disable-dev-shm-usage',
+        '--disable-gpu'
       ] 
     });
     const page = await browser.newPage();
 
     checkpoint = "Navigating directly to Job URL...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    // CRITICAL: process.env.TARGET_SITE_URL must be the specific job page link
-    await page.goto(process.env.TARGET_SITE_URL!);
+    await page.goto(process.env.TARGET_SITE_URL!, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
     checkpoint = "Filling Login Credentials...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     await page.locator('input[type="email"]').fill(process.env.TARGET_SITE_USER!);
     await page.locator('input[type="password"]').fill(process.env.TARGET_SITE_PASS!);
 
-    checkpoint = "Submitting Login and waiting for Job Page...";
+    checkpoint = "Submitting Login...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    await Promise.all([
-      page.waitForNavigation({ timeout: 15000 }),
-      page.getByRole('button', { name: 'Login' }).click()
-    ]);
+    await page.getByRole('button', { name: 'Login' }).click();
 
-    checkpoint = "Clicking 'Candidates' Tab...";
+    checkpoint = "Waiting for Candidates Tab on Job Page...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     const candidatesTab = page.getByText(/Candidates/i).first();
-    await candidatesTab.waitFor({ state: 'visible' });
+    await candidatesTab.waitFor({ state: 'visible', timeout: 30000 });
     await candidatesTab.click();
 
     checkpoint = "Clicking 'Add person and invite'...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     const addBtn = page.getByRole('button', { name: /Add person and invite/i });
-    await addBtn.waitFor({ state: 'visible' });
+    await addBtn.waitFor({ state: 'visible', timeout: 15000 });
     await addBtn.click();
 
     checkpoint = "Switching to 'New person' tab...";
@@ -116,7 +109,7 @@ async function runAutomation() {
 
     checkpoint = "Waiting for Interview Generation...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    await page.getByRole('heading', { name: 'Interview Scheduled!' }).waitFor({ state: 'visible', timeout: 15000 });
+    await page.getByRole('heading', { name: 'Interview Scheduled!' }).waitFor({ state: 'visible', timeout: 20000 });
 
     checkpoint = "Clicking 'Send Invite'...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
