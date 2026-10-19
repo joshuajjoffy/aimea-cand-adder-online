@@ -80,24 +80,22 @@ async function runAutomation() {
     checkpoint = "Waiting for Candidates Tab on Job Page...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     const candidatesTab = page.getByText(/Candidates/i).first();
-    await candidatesTab.waitFor({ state: 'visible', timeout: 30000 });
+    await candidatesTab.waitFor({ state: 'visible', timeout: 40000 });
     await candidatesTab.click();
 
     checkpoint = "Clicking 'Add person and invite'...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     const addBtn = page.getByRole('button', { name: /Add person and invite/i });
-    await addBtn.waitFor({ state: 'visible', timeout: 15000 });
+    await addBtn.waitFor({ state: 'visible', timeout: 20000 });
     await addBtn.click();
 
     checkpoint = "Switching to 'New person' tab...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     await page.getByText('New person', { exact: true }).click();
-    await page.waitForTimeout(1000); // Allow tab content to render
+    await page.waitForTimeout(1000);
 
     checkpoint = "Filling Candidate Name and Email...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-
-    // Flexible locators matching name and email inputs across custom modals
     const nameInput = page.locator('input[name*="name" i], input[placeholder*="name" i], input[aria-label*="name" i], input[type="text"]').first();
     const emailInput = page.locator('input[type="email"], input[name*="email" i], input[placeholder*="email" i]').first();
 
@@ -109,19 +107,25 @@ async function runAutomation() {
 
     checkpoint = "Clicking 'Schedule Interview'...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    await dialog.getByRole('button', { name: 'Schedule Interview' }).click();
+    const scheduleBtn = page.getByRole('button', { name: /Schedule Interview/i }).first();
+    await scheduleBtn.waitFor({ state: 'visible', timeout: 15000 });
+    await scheduleBtn.click();
 
     checkpoint = "Waiting for Interview Generation...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    await page.getByRole('heading', { name: 'Interview Scheduled!' }).waitFor({ state: 'visible', timeout: 20000 });
+    await page.getByRole('heading', { name: /Interview Scheduled!/i }).waitFor({ state: 'visible', timeout: 25000 });
 
     checkpoint = "Clicking 'Send Invite'...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    await page.getByRole('button', { name: 'Send Invite' }).click();
+    const sendBtn = page.getByRole('button', { name: /Send Invite/i }).first();
+    await sendBtn.waitFor({ state: 'visible', timeout: 15000 });
+    await sendBtn.click();
 
     checkpoint = "Closing Modal...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    await page.getByRole('button', { name: 'Close' }).click();
+    const closeBtn = page.getByRole('button', { name: /Close/i }).first();
+    await closeBtn.waitFor({ state: 'visible', timeout: 15000 });
+    await closeBtn.click();
 
     console.log("🎉 [SUCCESS]: Automation completed perfectly!");
 
