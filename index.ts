@@ -92,19 +92,20 @@ async function runAutomation() {
     checkpoint = "Switching to 'New person' tab...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
     await page.getByText('New person', { exact: true }).click();
+    await page.waitForTimeout(1000); // Allow tab content to render
 
     checkpoint = "Filling Candidate Name and Email...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
-    const dialog = page.getByRole('dialog');
-    
-    try {
-        await dialog.getByLabel('Name').fill(fullName);
-        await dialog.getByLabel('Email').fill(candidate.emailId!);
-    } catch {
-        const textInputs = dialog.locator('input[type="text"]');
-        await textInputs.first().fill(fullName);
-        await dialog.locator('input[type="email"], input[name="email"]').first().fill(candidate.emailId!);
-    }
+
+    // Flexible locators matching name and email inputs across custom modals
+    const nameInput = page.locator('input[name*="name" i], input[placeholder*="name" i], input[aria-label*="name" i], input[type="text"]').first();
+    const emailInput = page.locator('input[type="email"], input[name*="email" i], input[placeholder*="email" i]').first();
+
+    await nameInput.waitFor({ state: 'visible', timeout: 15000 });
+    await nameInput.fill(fullName);
+
+    await emailInput.waitFor({ state: 'visible', timeout: 15000 });
+    await emailInput.fill(candidate.emailId!);
 
     checkpoint = "Clicking 'Schedule Interview'...";
     console.log(`▶️ [CHECKPOINT]: ${checkpoint}`);
